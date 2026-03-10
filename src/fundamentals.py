@@ -8,6 +8,8 @@ import random
 import time
 from pathlib import Path
 
+import math
+
 import pandas as pd
 import yfinance as yf
 
@@ -85,6 +87,15 @@ def _fetch_metrics(ticker_obj: yf.Ticker, ticker: str) -> dict | None:
         "float_shares": info.get("floatShares"),
         "short_ratio": info.get("shortRatio"),
     }
+    # yfinance occasionally returns the string 'Infinity' or Python float inf
+    # for metrics like PE when earnings are zero — replace with NaN so PyArrow
+    # can write a clean double column.
+    for k, v in fields.items():
+        if isinstance(v, str) and v.lower() in ("infinity", "-infinity", "inf", "-inf"):
+            fields[k] = float("nan")
+        elif isinstance(v, float) and not math.isfinite(v):
+            fields[k] = float("nan")
+
     return fields
 
 
